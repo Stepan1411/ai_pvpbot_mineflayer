@@ -115,19 +115,12 @@ function tryConnect() {
         console.log(`Bot ${botName} connected to server with config ${currentConfigIndex + 1}`);
         console.log(`Using version: ${config.version || config.protocolVersion || 'auto-detect'}`);
         console.log(`Connection established, waiting for login...`);
-    });
-    
-    bot.on('login', () => {
-        console.log(`Bot ${botName} logged in successfully!`);
-        console.log(`Server version: ${bot.version}`);
-        console.log(`Protocol version: ${bot.protocolVersion}`);
-        if (bot.entity) {
-            console.log(`Position: ${bot.entity.position}`);
-        }
+        console.log(`Server may be slow, please be patient...`);
     });
     
     bot.on('login', () => {
         clearTimeout(timeoutId);
+        clearInterval(progressInterval);
         console.log(`Bot ${botName} logged in successfully!`);
         console.log(`Server version: ${bot.version}`);
         console.log(`Protocol version: ${bot.protocolVersion}`);
@@ -184,10 +177,17 @@ function tryConnect() {
         if (meta.name === 'login' || meta.name === 'success' || meta.name === 'disconnect') {
             console.log(`Bot ${botName} received packet: ${meta.name}`, data);
         }
+        // Log progress packets to show server is responding
+        if (meta.name === 'login_success' || meta.name === 'join_game' || meta.name === 'player_info') {
+            console.log(`Bot ${botName} login progress: ${meta.name}`);
+        }
     });
     
     bot.on('state', (newState, oldState) => {
         console.log(`Bot ${botName} state changed: ${oldState} -> ${newState}`);
+        if (newState === 'play') {
+            console.log(`Bot ${botName} successfully entered play state!`);
+        }
     });
     
     // Handle process termination
@@ -218,8 +218,21 @@ function tryConnect() {
         }
     });
     
+    // Progress indicator for slow servers
+    let progressInterval = setInterval(() => {
+        if (bot._client && bot._client.state) {
+            console.log(`Bot ${botName} connection progress: state = ${bot._client.state}`);
+            if (bot._client.state === 'play') {
+                clearInterval(progressInterval);
+            }
+        } else {
+            console.log(`Bot ${botName} still connecting... (server may be slow)`);
+        }
+    }, 10000); // Every 10 seconds
+    
     // Connection timeout - increase to 120 seconds for slow servers
     const timeoutId = setTimeout(() => {
+        clearInterval(progressInterval);
         if (!bot.entity && !bot._client?.state) {
             console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 120 seconds)`);
             bot.end();
