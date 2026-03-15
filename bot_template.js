@@ -17,18 +17,18 @@ if (serverVersion) {
 
 // Try different connection configurations
 const botConfigs = [
-    // Config 1: Use server version if provided, otherwise auto-detect
+    // Config 1: Auto-detect version (most reliable)
     {
         host: host,
         port: port,
         username: botName,
         auth: 'offline',
-        version: serverVersion || false, // Use server version or auto-detect
+        version: false, // Auto-detect
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 60000, // Increase to 60 seconds
-        loginTimeout: 60000, // Increase to 60 seconds
-        connectTimeout: 60000 // Add connect timeout
+        checkTimeoutInterval: 120000, // Increase to 120 seconds
+        loginTimeout: 120000, // Increase to 120 seconds
+        connectTimeout: 120000 // Add connect timeout
     },
     // Config 2: Use protocol version if provided
     ...(protocolVersion ? [{
@@ -230,16 +230,16 @@ function tryConnect() {
         }
     }, 10000); // Every 10 seconds
     
-    // Connection timeout - increase to 120 seconds for slow servers
+    // Connection timeout - increase to 300 seconds (5 minutes) for extremely slow servers
     const timeoutId = setTimeout(() => {
         clearInterval(progressInterval);
         if (!bot.entity && !bot._client?.state) {
-            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 120 seconds)`);
+            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 300 seconds)`);
             bot.end();
             currentConfigIndex++;
             setTimeout(tryConnect, 1000);
         }
-    }, 120000);
+    }, 300000);
 }
 
 // Start connection attempts
