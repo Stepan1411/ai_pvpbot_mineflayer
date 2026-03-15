@@ -120,10 +120,22 @@ function tryConnect() {
         }
     });
     
+    bot.on('login', () => {
+        clearTimeout(timeoutId);
+        console.log(`Bot ${botName} logged in successfully!`);
+        console.log(`Server version: ${bot.version}`);
+        console.log(`Protocol version: ${bot.protocolVersion}`);
+        console.log(`Player UUID: ${bot.player?.uuid}`);
+        if (bot.entity) {
+            console.log(`Position: ${bot.entity.position}`);
+        }
+    });
+    
     bot.on('spawn', () => {
         console.log(`Bot ${botName} spawned in the world`);
         console.log(`Health: ${bot.health}`);
         console.log(`Food: ${bot.food}`);
+        console.log(`Game mode: ${bot.player?.gamemode}`);
     });
     
     bot.on('chat', (username, message) => {
@@ -132,11 +144,13 @@ function tryConnect() {
     
     bot.on('error', (err) => {
         console.error(`Bot ${botName} error with config ${currentConfigIndex + 1}:`, err.message);
+        console.error(`Error details:`, err);
         
         if (err.message.includes('ECONNRESET') || err.message.includes('ECONNREFUSED') || 
             err.message.includes('Invalid username') || err.message.includes('authentication') ||
             err.message.includes('protocol') || err.message.includes('version') ||
-            err.message.includes('timeout') || err.message.includes('ETIMEDOUT')) {
+            err.message.includes('timeout') || err.message.includes('ETIMEDOUT') ||
+            err.message.includes('disconnect') || err.message.includes('kicked')) {
             console.log(`Config ${currentConfigIndex + 1} failed, trying next configuration...`);
             bot.end();
             currentConfigIndex++;
@@ -149,12 +163,25 @@ function tryConnect() {
     
     bot.on('end', (reason) => {
         console.log(`Bot ${botName} disconnected: ${reason || 'Unknown reason'}`);
+        console.log(`Disconnect details:`, reason);
         process.exit(0);
     });
     
     bot.on('kicked', (reason, loggedIn) => {
         console.log(`Bot ${botName} was kicked: ${reason} (logged in: ${loggedIn})`);
+        console.log(`Kick reason details:`, reason);
         process.exit(0);
+    });
+    
+    // Add more event handlers for debugging
+    bot.on('packet', (data, meta) => {
+        if (meta.name === 'login' || meta.name === 'success' || meta.name === 'disconnect') {
+            console.log(`Bot ${botName} received packet: ${meta.name}`, data);
+        }
+    });
+    
+    bot.on('state', (newState, oldState) => {
+        console.log(`Bot ${botName} state changed: ${oldState} -> ${newState}`);
     });
     
     // Handle process termination
