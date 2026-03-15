@@ -17,7 +17,7 @@ if (serverVersion) {
 
 // Try different connection configurations
 const botConfigs = [
-    // Config 1: Auto-detect version (most reliable)
+    // Config 1: Auto-detect version (most reliable) - disable ping
     {
         host: host,
         port: port,
@@ -26,9 +26,10 @@ const botConfigs = [
         version: false, // Auto-detect
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 120000, // Increase to 120 seconds
-        loginTimeout: 120000, // Increase to 120 seconds
-        connectTimeout: 120000 // Add connect timeout
+        checkTimeoutInterval: 120000,
+        loginTimeout: 120000,
+        connectTimeout: 120000,
+        noPing: true // Disable server ping
     },
     // Config 2: Use protocol version if provided
     ...(protocolVersion ? [{
@@ -41,7 +42,8 @@ const botConfigs = [
         hideErrors: false,
         checkTimeoutInterval: 60000,
         loginTimeout: 60000,
-        connectTimeout: 60000
+        connectTimeout: 60000,
+        noPing: true // Disable server ping
     }] : []),
     // Config 3: Force 1.21.11 (protocol 774) - common server version
     {
@@ -54,7 +56,8 @@ const botConfigs = [
         hideErrors: false,
         checkTimeoutInterval: 60000,
         loginTimeout: 60000,
-        connectTimeout: 60000
+        connectTimeout: 60000,
+        noPing: true // Disable server ping
     },
     // Config 4: Force 1.21.1 (protocol 767)
     {
@@ -67,7 +70,8 @@ const botConfigs = [
         hideErrors: false,
         checkTimeoutInterval: 60000,
         loginTimeout: 60000,
-        connectTimeout: 60000
+        connectTimeout: 60000,
+        noPing: true // Disable server ping
     },
     // Config 5: Force 1.21.3 (protocol 768)
     {
@@ -80,7 +84,8 @@ const botConfigs = [
         hideErrors: false,
         checkTimeoutInterval: 60000,
         loginTimeout: 60000,
-        connectTimeout: 60000
+        connectTimeout: 60000,
+        noPing: true // Disable server ping
     },
     // Config 6: Try with protocol 774 directly
     {
@@ -93,7 +98,8 @@ const botConfigs = [
         hideErrors: false,
         checkTimeoutInterval: 60000,
         loginTimeout: 60000,
-        connectTimeout: 60000
+        connectTimeout: 60000,
+        noPing: true // Disable server ping
     }
 ];
 
