@@ -16,8 +16,86 @@ if (serverVersion) {
 }
 
 // Optimized connection configurations for handshake issues
-const botConfigs = [
-    // Config 1: Force 1.20.1 with explicit protocol (most stable)
+let botConfigs = [];
+
+// If server version is provided, prioritize it
+if (serverVersion && protocolVersion) {
+    console.log(`Using server-provided version: ${serverVersion} (Protocol: ${protocolVersion})`);
+    botConfigs.push({
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: serverVersion,
+        protocolVersion: protocolVersion,
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 20000,
+        loginTimeout: 20000,
+        connectTimeout: 20000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 10000
+    });
+}
+
+// Add standard configurations
+botConfigs = botConfigs.concat([
+    // Config: Force 1.21.11 with explicit protocol (match common server version)
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: '1.21.11',
+        protocolVersion: 774,
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 20000,
+        loginTimeout: 20000,
+        connectTimeout: 20000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 10000
+    },
+    // Config: Force 1.21.1 with explicit protocol (close to server version)
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: '1.21.1',
+        protocolVersion: 767,
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 20000,
+        loginTimeout: 20000,
+        connectTimeout: 20000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 10000
+    },
+    // Config: Auto-detect with fast timeout
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: false, // Auto-detect
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 15000,
+        loginTimeout: 15000,
+        connectTimeout: 15000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 10000
+    },
+    // Config: Force 1.20.1 with explicit protocol (fallback)
     {
         host: host,
         port: port,
@@ -35,7 +113,7 @@ const botConfigs = [
         keepAlive: false,
         closeTimeout: 10000
     },
-    // Config 2: Force 1.19.4 with explicit protocol (very stable)
+    // Config: Force 1.19.4 with explicit protocol (older fallback)
     {
         host: host,
         port: port,
@@ -52,61 +130,8 @@ const botConfigs = [
         disablePing: true,
         keepAlive: false,
         closeTimeout: 10000
-    },
-    // Config 3: Force 1.18.2 (older but very compatible)
-    {
-        host: host,
-        port: port,
-        username: botName,
-        auth: 'offline',
-        version: '1.18.2',
-        protocolVersion: 758,
-        skipValidation: true,
-        hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
-        noPing: true,
-        disablePing: true,
-        keepAlive: false,
-        closeTimeout: 10000
-    },
-    // Config 4: Auto-detect with fast timeout
-    {
-        host: host,
-        port: port,
-        username: botName,
-        auth: 'offline',
-        version: false, // Auto-detect
-        skipValidation: true,
-        hideErrors: false,
-        checkTimeoutInterval: 15000,
-        loginTimeout: 15000,
-        connectTimeout: 15000,
-        noPing: true,
-        disablePing: true,
-        keepAlive: false,
-        closeTimeout: 10000
-    },
-    // Config 5: Force 1.21.1 (if server supports newer versions)
-    {
-        host: host,
-        port: port,
-        username: botName,
-        auth: 'offline',
-        version: '1.21.1',
-        protocolVersion: 767,
-        skipValidation: true,
-        hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
-        noPing: true,
-        disablePing: true,
-        keepAlive: false,
-        closeTimeout: 10000
     }
-];
+]);
 
 let currentConfigIndex = 0;
 
