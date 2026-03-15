@@ -8,8 +8,11 @@ const serverVersion = process.argv[5]; // Optional server version
 const protocolVersion = process.argv[6] ? parseInt(process.argv[6]) : null; // Optional protocol version
 
 console.log(`Starting bot: ${botName} connecting to ${host}:${port}`);
+console.log(`Command line args:`, process.argv);
 if (serverVersion) {
     console.log(`Server version: ${serverVersion} (Protocol: ${protocolVersion || 'auto-detect'})`);
+} else {
+    console.log(`No server version provided, using auto-detect`);
 }
 
 // Try different connection configurations
