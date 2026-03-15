@@ -17,7 +17,24 @@ if (serverVersion) {
 
 // Try different connection configurations
 const botConfigs = [
-    // Config 1: Auto-detect version (most reliable) - disable ping
+    // Config 1: Force 1.20.1 (most stable and compatible)
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: '1.20.1',
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 30000
+    },
+    // Config 2: Auto-detect version (fallback)
     {
         host: host,
         port: port,
@@ -26,40 +43,32 @@ const botConfigs = [
         version: false, // Auto-detect
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 120000,
-        loginTimeout: 120000,
-        connectTimeout: 120000,
-        noPing: true // Disable server ping
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 30000
     },
-    // Config 2: Use protocol version if provided
-    ...(protocolVersion ? [{
+    // Config 4: Use server version if provided (but not 1.21.11 which has issues)
+    ...(serverVersion && serverVersion !== '1.21.11' && serverVersion !== '1.21.3' ? [{
         host: host,
         port: port,
         username: botName,
         auth: 'offline',
-        protocolVersion: protocolVersion,
+        version: serverVersion,
         skipValidation: true,
         hideErrors: false,
         checkTimeoutInterval: 60000,
         loginTimeout: 60000,
         connectTimeout: 60000,
-        noPing: true // Disable server ping
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 30000
     }] : []),
-    // Config 3: Force 1.21.11 (protocol 774) - common server version
-    {
-        host: host,
-        port: port,
-        username: botName,
-        auth: 'offline',
-        version: '1.21.11',
-        skipValidation: true,
-        hideErrors: false,
-        checkTimeoutInterval: 60000,
-        loginTimeout: 60000,
-        connectTimeout: 60000,
-        noPing: true // Disable server ping
-    },
-    // Config 4: Force 1.21.1 (protocol 767)
+    // Config 3: Force 1.21.1 (protocol 767) - newer but stable
     {
         host: host,
         port: port,
@@ -71,35 +80,27 @@ const botConfigs = [
         checkTimeoutInterval: 60000,
         loginTimeout: 60000,
         connectTimeout: 60000,
-        noPing: true // Disable server ping
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 30000
     },
-    // Config 5: Force 1.21.3 (protocol 768)
+    // Config 5: Try 1.19.4 (older but very stable)
     {
         host: host,
         port: port,
         username: botName,
         auth: 'offline',
-        version: '1.21.3',
+        version: '1.19.4',
         skipValidation: true,
         hideErrors: false,
         checkTimeoutInterval: 60000,
         loginTimeout: 60000,
         connectTimeout: 60000,
-        noPing: true // Disable server ping
-    },
-    // Config 6: Try with protocol 774 directly
-    {
-        host: host,
-        port: port,
-        username: botName,
-        auth: 'offline',
-        protocolVersion: 774,
-        skipValidation: true,
-        hideErrors: false,
-        checkTimeoutInterval: 60000,
-        loginTimeout: 60000,
-        connectTimeout: 60000,
-        noPing: true // Disable server ping
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 30000
     }
 ];
 
@@ -236,16 +237,17 @@ function tryConnect() {
         }
     }, 10000); // Every 10 seconds
     
-    // Connection timeout - increase to 300 seconds (5 minutes) for extremely slow servers
+    // Connection timeout - reduce to 120 seconds (2 minutes) for faster fallback
     const timeoutId = setTimeout(() => {
         clearInterval(progressInterval);
-        if (!bot.entity && !bot._client?.state) {
-            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 300 seconds)`);
+        if (!bot.entity && bot._client?.state !== 'play') {
+            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 120 seconds)`);
+            console.log(`Current state: ${bot._client?.state || 'unknown'}`);
             bot.end();
             currentConfigIndex++;
             setTimeout(tryConnect, 1000);
         }
-    }, 300000);
+    }, 120000);
 }
 
 // Start connection attempts
