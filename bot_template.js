@@ -107,7 +107,8 @@ function tryConnect() {
     
     bot.on('connect', () => {
         console.log(`Bot ${botName} connected to server with config ${currentConfigIndex + 1}`);
-        console.log(`Using version: ${config.version || 'auto-detect'}`);
+        console.log(`Using version: ${config.version || config.protocolVersion || 'auto-detect'}`);
+        console.log(`Connection established, waiting for login...`);
     });
     
     bot.on('login', () => {
@@ -173,16 +174,6 @@ function tryConnect() {
         process.exit(0);
     });
     
-    // Connection timeout - increase to 45 seconds and add better timeout handling
-    const timeoutId = setTimeout(() => {
-        if (!bot.entity && !bot._client?.state) {
-            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1}`);
-            bot.end();
-            currentConfigIndex++;
-            setTimeout(tryConnect, 1000);
-        }
-    }, 45000);
-    
     // Clear timeout on successful login
     bot.on('login', () => {
         clearTimeout(timeoutId);
@@ -193,6 +184,16 @@ function tryConnect() {
             console.log(`Position: ${bot.entity.position}`);
         }
     });
+    
+    // Connection timeout - increase to 60 seconds and add better timeout handling
+    const timeoutId = setTimeout(() => {
+        if (!bot.entity && !bot._client?.state) {
+            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 60 seconds)`);
+            bot.end();
+            currentConfigIndex++;
+            setTimeout(tryConnect, 1000);
+        }
+    }, 60000);
 }
 
 // Start connection attempts
