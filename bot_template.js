@@ -52,13 +52,13 @@ botConfigs = botConfigs.concat([
         protocolVersion: 774,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000,
+        connectTimeout: 30000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 15000
     },
     // Config: Force 1.21.1 with explicit protocol (close to server version)
     {
@@ -70,15 +70,15 @@ botConfigs = botConfigs.concat([
         protocolVersion: 767,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000,
+        connectTimeout: 30000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 15000
     },
-    // Config: Auto-detect with fast timeout
+    // Config: Auto-detect with moderate timeout
     {
         host: host,
         port: port,
@@ -87,13 +87,13 @@ botConfigs = botConfigs.concat([
         version: false, // Auto-detect
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 15000,
-        loginTimeout: 15000,
-        connectTimeout: 15000,
+        checkTimeoutInterval: 25000,
+        loginTimeout: 25000,
+        connectTimeout: 25000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 15000
     },
     // Config: Force 1.20.1 with explicit protocol (fallback)
     {
@@ -105,13 +105,13 @@ botConfigs = botConfigs.concat([
         protocolVersion: 763,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000,
+        connectTimeout: 30000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 15000
     },
     // Config: Force 1.19.4 with explicit protocol (older fallback)
     {
@@ -123,13 +123,13 @@ botConfigs = botConfigs.concat([
         protocolVersion: 762,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000,
+        connectTimeout: 30000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 15000
     }
 ]);
 
@@ -203,12 +203,22 @@ function tryConnect() {
         clearTimeout(stateChangeTimeout);
         console.error(`Bot ${botName} error with config ${currentConfigIndex + 1}:`, err.message);
         
+        // Log additional error details for debugging
+        if (err.code) {
+            console.error(`Error code: ${err.code}`);
+        }
+        if (err.errno) {
+            console.error(`Error number: ${err.errno}`);
+        }
+        
         if (err.message.includes('ECONNRESET') || err.message.includes('ECONNREFUSED') || 
             err.message.includes('Invalid username') || err.message.includes('authentication') ||
             err.message.includes('protocol') || err.message.includes('version') ||
             err.message.includes('timeout') || err.message.includes('ETIMEDOUT') ||
             err.message.includes('disconnect') || err.message.includes('kicked') ||
-            err.message.includes('handshake') || err.message.includes('login')) {
+            err.message.includes('handshake') || err.message.includes('login') ||
+            err.message.includes('socket') || err.message.includes('connection') ||
+            err.message.includes('EPIPE') || err.message.includes('ENOTFOUND')) {
             console.log(`Config ${currentConfigIndex + 1} failed, trying next configuration...`);
             bot.end();
             currentConfigIndex++;
@@ -223,11 +233,20 @@ function tryConnect() {
         connectionState = 'ended';
         clearTimeout(stateChangeTimeout);
         console.log(`Bot ${botName} disconnected: ${reason || 'Unknown reason'}`);
-        if (connectionState !== 'spawned') {
-            // Connection failed, don't exit yet
-            return;
+        console.log(`Disconnect details: ${JSON.stringify(reason)}`);
+        
+        // If we were successfully playing, this is a normal disconnect
+        if (connectionState === 'spawned' || connectionState === 'playing') {
+            console.log(`Bot ${botName} was successfully connected and then disconnected`);
+            process.exit(0);
         }
-        process.exit(0);
+        
+        // If we were still connecting/logging in, try next config
+        if (connectionState === 'connected' || connectionState === 'logged_in') {
+            console.log(`Bot ${botName} disconnected during login process, trying next config`);
+            currentConfigIndex++;
+            setTimeout(tryConnect, 2000);
+        }
     });
     
     bot.on('kicked', (reason, loggedIn) => {
@@ -237,7 +256,7 @@ function tryConnect() {
         process.exit(0);
     });
     
-    // Enhanced state tracking
+    // Enhanced state tracking with login timeout
     bot.on('state', (newState, oldState) => {
         console.log(`Bot ${botName} state changed: ${oldState} -> ${newState}`);
         if (newState === 'play') {
@@ -256,6 +275,18 @@ function tryConnect() {
                     setTimeout(tryConnect, 1000);
                 }
             }, 10000); // 10 second handshake timeout
+        }
+        
+        // If stuck in login for too long, force retry
+        if (newState === 'login') {
+            setTimeout(() => {
+                if (bot._client?.state === 'login' && connectionState === 'connected') {
+                    console.log(`Bot ${botName} login timeout, forcing retry`);
+                    bot.end();
+                    currentConfigIndex++;
+                    setTimeout(tryConnect, 1000);
+                }
+            }, 30000); // 30 second login timeout
         }
     });
     
