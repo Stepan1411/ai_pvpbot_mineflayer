@@ -26,8 +26,9 @@ const botConfigs = [
         version: serverVersion || false, // Use server version or auto-detect
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 30000,
-        loginTimeout: 30000
+        checkTimeoutInterval: 60000, // Increase to 60 seconds
+        loginTimeout: 60000, // Increase to 60 seconds
+        connectTimeout: 60000 // Add connect timeout
     },
     // Config 2: Use protocol version if provided
     ...(protocolVersion ? [{
@@ -38,8 +39,9 @@ const botConfigs = [
         protocolVersion: protocolVersion,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 30000,
-        loginTimeout: 30000
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000
     }] : []),
     // Config 3: Force 1.21.11 (protocol 774) - common server version
     {
@@ -50,8 +52,9 @@ const botConfigs = [
         version: '1.21.11',
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 30000,
-        loginTimeout: 30000
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000
     },
     // Config 4: Force 1.21.1 (protocol 767)
     {
@@ -62,8 +65,9 @@ const botConfigs = [
         version: '1.21.1',
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 30000,
-        loginTimeout: 30000
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000
     },
     // Config 5: Force 1.21.3 (protocol 768)
     {
@@ -74,8 +78,9 @@ const botConfigs = [
         version: '1.21.3',
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 30000,
-        loginTimeout: 30000
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000
     },
     // Config 6: Try with protocol 774 directly
     {
@@ -86,8 +91,9 @@ const botConfigs = [
         protocolVersion: 774,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 30000,
-        loginTimeout: 30000
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000
     }
 ];
 
@@ -212,15 +218,15 @@ function tryConnect() {
         }
     });
     
-    // Connection timeout - increase to 60 seconds and add better timeout handling
+    // Connection timeout - increase to 120 seconds for slow servers
     const timeoutId = setTimeout(() => {
         if (!bot.entity && !bot._client?.state) {
-            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 60 seconds)`);
+            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 120 seconds)`);
             bot.end();
             currentConfigIndex++;
             setTimeout(tryConnect, 1000);
         }
-    }, 60000);
+    }, 120000);
 }
 
 // Start connection attempts
