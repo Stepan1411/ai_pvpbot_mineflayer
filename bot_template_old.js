@@ -15,63 +15,26 @@ if (serverVersion) {
     console.log(`No server version provided, using auto-detect`);
 }
 
-// Optimized connection configurations for handshake issues
+// Try different connection configurations
 const botConfigs = [
-    // Config 1: Force 1.20.1 with explicit protocol (most stable)
+    // Config 1: Force 1.20.1 (most stable and compatible)
     {
         host: host,
         port: port,
         username: botName,
         auth: 'offline',
         version: '1.20.1',
-        protocolVersion: 763,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 30000
     },
-    // Config 2: Force 1.19.4 with explicit protocol (very stable)
-    {
-        host: host,
-        port: port,
-        username: botName,
-        auth: 'offline',
-        version: '1.19.4',
-        protocolVersion: 762,
-        skipValidation: true,
-        hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
-        noPing: true,
-        disablePing: true,
-        keepAlive: false,
-        closeTimeout: 10000
-    },
-    // Config 3: Force 1.18.2 (older but very compatible)
-    {
-        host: host,
-        port: port,
-        username: botName,
-        auth: 'offline',
-        version: '1.18.2',
-        protocolVersion: 758,
-        skipValidation: true,
-        hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
-        noPing: true,
-        disablePing: true,
-        keepAlive: false,
-        closeTimeout: 10000
-    },
-    // Config 4: Auto-detect with fast timeout
+    // Config 2: Auto-detect version (fallback)
     {
         host: host,
         port: port,
@@ -80,31 +43,64 @@ const botConfigs = [
         version: false, // Auto-detect
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 15000,
-        loginTimeout: 15000,
-        connectTimeout: 15000,
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 30000
     },
-    // Config 5: Force 1.21.1 (if server supports newer versions)
+    // Config 4: Use server version if provided (but not 1.21.11 which has issues)
+    ...(serverVersion && serverVersion !== '1.21.11' && serverVersion !== '1.21.3' ? [{
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: serverVersion,
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 30000
+    }] : []),
+    // Config 3: Force 1.21.1 (protocol 767) - newer but stable
     {
         host: host,
         port: port,
         username: botName,
         auth: 'offline',
         version: '1.21.1',
-        protocolVersion: 767,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 30000
+    },
+    // Config 5: Try 1.19.4 (older but very stable)
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: '1.19.4',
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 60000,
+        loginTimeout: 60000,
+        connectTimeout: 60000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 30000
     }
 ];
 
@@ -113,44 +109,24 @@ let currentConfigIndex = 0;
 function tryConnect() {
     if (currentConfigIndex >= botConfigs.length) {
         console.log(`Bot ${botName} failed to connect with all configurations`);
-        console.log(`All ${botConfigs.length} connection attempts failed`);
         process.exit(1);
         return;
     }
     
     const config = botConfigs[currentConfigIndex];
-    console.log(`Trying configuration ${currentConfigIndex + 1}/${botConfigs.length}:`);
-    console.log(`  Version: ${config.version || 'auto-detect'}`);
-    console.log(`  Protocol: ${config.protocolVersion || 'auto-detect'}`);
-    console.log(`  Timeout: ${config.loginTimeout}ms`);
+    console.log(`Trying configuration ${currentConfigIndex + 1}:`, JSON.stringify(config, null, 2));
     
     const bot = mineflayer.createBot(config);
     
-    // Track connection state
-    let connectionState = 'connecting';
-    let stateChangeTimeout;
-    
     bot.on('connect', () => {
-        connectionState = 'connected';
         console.log(`Bot ${botName} connected to server with config ${currentConfigIndex + 1}`);
-        console.log(`Using version: ${config.version || 'auto-detect'}`);
+        console.log(`Using version: ${config.version || config.protocolVersion || 'auto-detect'}`);
         console.log(`Connection established, waiting for login...`);
-        
-        // Set timeout for handshake -> login transition
-        stateChangeTimeout = setTimeout(() => {
-            if (connectionState === 'connected' && bot._client?.state === 'handshaking') {
-                console.log(`Bot ${botName} stuck in handshaking state, trying next config`);
-                bot.end();
-                currentConfigIndex++;
-                setTimeout(tryConnect, 1000);
-            }
-        }, 15000); // 15 seconds timeout for handshake
+        console.log(`Server may be slow, please be patient...`);
     });
     
     bot.on('login', () => {
-        connectionState = 'logged_in';
         clearTimeout(timeoutId);
-        clearTimeout(stateChangeTimeout);
         clearInterval(progressInterval);
         console.log(`Bot ${botName} logged in successfully!`);
         console.log(`Server version: ${bot.version}`);
@@ -162,7 +138,6 @@ function tryConnect() {
     });
     
     bot.on('spawn', () => {
-        connectionState = 'spawned';
         console.log(`Bot ${botName} spawned in the world`);
         console.log(`Health: ${bot.health}`);
         console.log(`Food: ${bot.food}`);
@@ -174,16 +149,14 @@ function tryConnect() {
     });
     
     bot.on('error', (err) => {
-        connectionState = 'error';
-        clearTimeout(stateChangeTimeout);
         console.error(`Bot ${botName} error with config ${currentConfigIndex + 1}:`, err.message);
+        console.error(`Error details:`, err);
         
         if (err.message.includes('ECONNRESET') || err.message.includes('ECONNREFUSED') || 
             err.message.includes('Invalid username') || err.message.includes('authentication') ||
             err.message.includes('protocol') || err.message.includes('version') ||
             err.message.includes('timeout') || err.message.includes('ETIMEDOUT') ||
-            err.message.includes('disconnect') || err.message.includes('kicked') ||
-            err.message.includes('handshake') || err.message.includes('login')) {
+            err.message.includes('disconnect') || err.message.includes('kicked')) {
             console.log(`Config ${currentConfigIndex + 1} failed, trying next configuration...`);
             bot.end();
             currentConfigIndex++;
@@ -195,42 +168,32 @@ function tryConnect() {
     });
     
     bot.on('end', (reason) => {
-        connectionState = 'ended';
-        clearTimeout(stateChangeTimeout);
         console.log(`Bot ${botName} disconnected: ${reason || 'Unknown reason'}`);
-        if (connectionState !== 'spawned') {
-            // Connection failed, don't exit yet
-            return;
-        }
+        console.log(`Disconnect details:`, reason);
         process.exit(0);
     });
     
     bot.on('kicked', (reason, loggedIn) => {
-        connectionState = 'kicked';
-        clearTimeout(stateChangeTimeout);
         console.log(`Bot ${botName} was kicked: ${reason} (logged in: ${loggedIn})`);
+        console.log(`Kick reason details:`, reason);
         process.exit(0);
     });
     
-    // Enhanced state tracking
+    // Add more event handlers for debugging
+    bot.on('packet', (data, meta) => {
+        if (meta.name === 'login' || meta.name === 'success' || meta.name === 'disconnect') {
+            console.log(`Bot ${botName} received packet: ${meta.name}`, data);
+        }
+        // Log progress packets to show server is responding
+        if (meta.name === 'login_success' || meta.name === 'join_game' || meta.name === 'player_info') {
+            console.log(`Bot ${botName} login progress: ${meta.name}`);
+        }
+    });
+    
     bot.on('state', (newState, oldState) => {
         console.log(`Bot ${botName} state changed: ${oldState} -> ${newState}`);
         if (newState === 'play') {
-            connectionState = 'playing';
             console.log(`Bot ${botName} successfully entered play state!`);
-            clearTimeout(stateChangeTimeout);
-        }
-        
-        // If stuck in handshaking for too long, force retry
-        if (newState === 'handshaking') {
-            setTimeout(() => {
-                if (bot._client?.state === 'handshaking' && connectionState === 'connected') {
-                    console.log(`Bot ${botName} handshake timeout, forcing retry`);
-                    bot.end();
-                    currentConfigIndex++;
-                    setTimeout(tryConnect, 1000);
-                }
-            }, 10000); // 10 second handshake timeout
         }
     });
     
@@ -251,30 +214,40 @@ function tryConnect() {
         process.exit(0);
     });
     
-    // Progress indicator with state info
+    // Clear timeout on successful login
+    bot.on('login', () => {
+        clearTimeout(timeoutId);
+        console.log(`Bot ${botName} logged in successfully!`);
+        console.log(`Server version: ${bot.version}`);
+        console.log(`Protocol version: ${bot.protocolVersion}`);
+        if (bot.entity) {
+            console.log(`Position: ${bot.entity.position}`);
+        }
+    });
+    
+    // Progress indicator for slow servers
     let progressInterval = setInterval(() => {
         if (bot._client && bot._client.state) {
-            console.log(`Bot ${botName} progress: state = ${bot._client.state}, connection = ${connectionState}`);
+            console.log(`Bot ${botName} connection progress: state = ${bot._client.state}`);
             if (bot._client.state === 'play') {
                 clearInterval(progressInterval);
             }
         } else {
-            console.log(`Bot ${botName} still connecting... (connection = ${connectionState})`);
+            console.log(`Bot ${botName} still connecting... (server may be slow)`);
         }
-    }, 5000); // Every 5 seconds
+    }, 10000); // Every 10 seconds
     
-    // Overall connection timeout - reduced to 60 seconds for faster fallback
+    // Connection timeout - reduce to 120 seconds (2 minutes) for faster fallback
     const timeoutId = setTimeout(() => {
         clearInterval(progressInterval);
-        clearTimeout(stateChangeTimeout);
-        if (connectionState !== 'spawned' && connectionState !== 'playing') {
-            console.log(`Bot ${botName} overall timeout with config ${currentConfigIndex + 1} (waited 60 seconds)`);
-            console.log(`Final state: ${bot._client?.state || 'unknown'}, connection: ${connectionState}`);
+        if (!bot.entity && bot._client?.state !== 'play') {
+            console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1} (waited 120 seconds)`);
+            console.log(`Current state: ${bot._client?.state || 'unknown'}`);
             bot.end();
             currentConfigIndex++;
             setTimeout(tryConnect, 1000);
         }
-    }, 60000);
+    }, 120000);
 }
 
 // Start connection attempts
