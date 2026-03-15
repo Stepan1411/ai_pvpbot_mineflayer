@@ -4,24 +4,41 @@ const mineflayer = require('mineflayer');
 const botName = process.argv[2] || 'AIBot';
 const host = process.argv[3] || '127.0.0.1';
 const port = parseInt(process.argv[4]) || 25565;
+const serverVersion = process.argv[5]; // Optional server version
+const protocolVersion = process.argv[6] ? parseInt(process.argv[6]) : null; // Optional protocol version
 
 console.log(`Starting bot: ${botName} connecting to ${host}:${port}`);
+if (serverVersion) {
+    console.log(`Server version: ${serverVersion} (Protocol: ${protocolVersion || 'auto-detect'})`);
+}
 
 // Try different connection configurations
 const botConfigs = [
-    // Config 1: Auto-detect version
+    // Config 1: Use server version if provided, otherwise auto-detect
     {
         host: host,
         port: port,
         username: botName,
         auth: 'offline',
-        version: false, // Auto-detect
+        version: serverVersion || false, // Use server version or auto-detect
         skipValidation: true,
         hideErrors: false,
         checkTimeoutInterval: 30000,
         loginTimeout: 30000
     },
-    // Config 2: Force 1.21.11 (protocol 774) - exact server version
+    // Config 2: Use protocol version if provided
+    ...(protocolVersion ? [{
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        protocolVersion: protocolVersion,
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000
+    }] : []),
+    // Config 3: Force 1.21.11 (protocol 774) - common server version
     {
         host: host,
         port: port,
@@ -33,7 +50,7 @@ const botConfigs = [
         checkTimeoutInterval: 30000,
         loginTimeout: 30000
     },
-    // Config 3: Force 1.21.1 (protocol 767)
+    // Config 4: Force 1.21.1 (protocol 767)
     {
         host: host,
         port: port,
@@ -45,7 +62,7 @@ const botConfigs = [
         checkTimeoutInterval: 30000,
         loginTimeout: 30000
     },
-    // Config 4: Force 1.21.3 (protocol 768)
+    // Config 5: Force 1.21.3 (protocol 768)
     {
         host: host,
         port: port,
@@ -57,7 +74,7 @@ const botConfigs = [
         checkTimeoutInterval: 30000,
         loginTimeout: 30000
     },
-    // Config 5: Try with protocol 774 directly
+    // Config 6: Try with protocol 774 directly
     {
         host: host,
         port: port,
