@@ -30,7 +30,7 @@ bower_components
 build/Release
 
 # Dependency directories
-# node_modules/ - We want to include node_modules in the repo for easy distribution
+node_modules/
 
 # TypeScript v1 declaration files
 typings/

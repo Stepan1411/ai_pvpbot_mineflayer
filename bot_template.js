@@ -9,17 +9,31 @@ console.log(`Starting bot: ${botName} connecting to ${host}:${port}`);
 
 // Try different connection configurations
 const botConfigs = [
-    // Config 1: Offline mode
+    // Config 1: Auto-detect version
     {
         host: host,
         port: port,
         username: botName,
         auth: 'offline',
-        version: false,
+        version: false, // Auto-detect
         skipValidation: true,
-        hideErrors: false
+        hideErrors: false,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000
     },
-    // Config 2: Force specific version
+    // Config 2: Force 1.21.11 (protocol 774) - exact server version
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: '1.21.11',
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000
+    },
+    // Config 3: Force 1.21.1 (protocol 767)
     {
         host: host,
         port: port,
@@ -27,7 +41,33 @@ const botConfigs = [
         auth: 'offline',
         version: '1.21.1',
         skipValidation: true,
-        hideErrors: false
+        hideErrors: false,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000
+    },
+    // Config 4: Force 1.21.3 (protocol 768)
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: '1.21.3',
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000
+    },
+    // Config 5: Try with protocol 774 directly
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        protocolVersion: 774,
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000
     }
 ];
 
@@ -47,11 +87,13 @@ function tryConnect() {
     
     bot.on('connect', () => {
         console.log(`Bot ${botName} connected to server with config ${currentConfigIndex + 1}`);
+        console.log(`Using version: ${config.version || 'auto-detect'}`);
     });
     
     bot.on('login', () => {
         console.log(`Bot ${botName} logged in successfully!`);
         console.log(`Server version: ${bot.version}`);
+        console.log(`Protocol version: ${bot.protocolVersion}`);
         if (bot.entity) {
             console.log(`Position: ${bot.entity.position}`);
         }
@@ -71,8 +113,11 @@ function tryConnect() {
         console.error(`Bot ${botName} error with config ${currentConfigIndex + 1}:`, err.message);
         
         if (err.message.includes('ECONNRESET') || err.message.includes('ECONNREFUSED') || 
-            err.message.includes('Invalid username') || err.message.includes('authentication')) {
+            err.message.includes('Invalid username') || err.message.includes('authentication') ||
+            err.message.includes('protocol') || err.message.includes('version') ||
+            err.message.includes('timeout') || err.message.includes('ETIMEDOUT')) {
             console.log(`Config ${currentConfigIndex + 1} failed, trying next configuration...`);
+            bot.end();
             currentConfigIndex++;
             setTimeout(tryConnect, 2000);
         } else {
@@ -108,14 +153,26 @@ function tryConnect() {
         process.exit(0);
     });
     
-    // Connection timeout
-    setTimeout(() => {
-        if (!bot.entity) {
+    // Connection timeout - increase to 45 seconds and add better timeout handling
+    const timeoutId = setTimeout(() => {
+        if (!bot.entity && !bot._client?.state) {
             console.log(`Bot ${botName} connection timeout with config ${currentConfigIndex + 1}`);
+            bot.end();
             currentConfigIndex++;
-            tryConnect();
+            setTimeout(tryConnect, 1000);
         }
-    }, 15000);
+    }, 45000);
+    
+    // Clear timeout on successful login
+    bot.on('login', () => {
+        clearTimeout(timeoutId);
+        console.log(`Bot ${botName} logged in successfully!`);
+        console.log(`Server version: ${bot.version}`);
+        console.log(`Protocol version: ${bot.protocolVersion}`);
+        if (bot.entity) {
+            console.log(`Position: ${bot.entity.position}`);
+        }
+    });
 }
 
 // Start connection attempts
