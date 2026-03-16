@@ -30,19 +30,23 @@ if (serverVersion && protocolVersion) {
         protocolVersion: protocolVersion,
         skipValidation: true,
         hideErrors: false,
-        checkTimeoutInterval: 20000,
-        loginTimeout: 20000,
-        connectTimeout: 20000,
+        checkTimeoutInterval: 30000,
+        loginTimeout: 30000,
+        connectTimeout: 30000,
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 10000
+        closeTimeout: 15000,
+        // Additional compatibility settings
+        validateChannelProtocol: false,
+        enforceSecureChat: false,
+        profileKeys: false
     });
 }
 
 // Add standard configurations
 botConfigs = botConfigs.concat([
-    // Config: Force 1.21.11 with explicit protocol (match common server version)
+    // Config: Force 1.21.11 with compatibility settings
     {
         host: host,
         port: port,
@@ -58,9 +62,12 @@ botConfigs = botConfigs.concat([
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 15000
+        closeTimeout: 15000,
+        validateChannelProtocol: false,
+        enforceSecureChat: false,
+        profileKeys: false
     },
-    // Config: Force 1.21.1 with explicit protocol (close to server version)
+    // Config: Force 1.21.1 with compatibility settings
     {
         host: host,
         port: port,
@@ -76,26 +83,12 @@ botConfigs = botConfigs.concat([
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 15000
+        closeTimeout: 15000,
+        validateChannelProtocol: false,
+        enforceSecureChat: false,
+        profileKeys: false
     },
-    // Config: Auto-detect with moderate timeout
-    {
-        host: host,
-        port: port,
-        username: botName,
-        auth: 'offline',
-        version: false, // Auto-detect
-        skipValidation: true,
-        hideErrors: false,
-        checkTimeoutInterval: 25000,
-        loginTimeout: 25000,
-        connectTimeout: 25000,
-        noPing: true,
-        disablePing: true,
-        keepAlive: false,
-        closeTimeout: 15000
-    },
-    // Config: Force 1.20.1 with explicit protocol (fallback)
+    // Config: Force 1.20.1 with compatibility settings (most stable)
     {
         host: host,
         port: port,
@@ -111,9 +104,32 @@ botConfigs = botConfigs.concat([
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 15000
+        closeTimeout: 15000,
+        validateChannelProtocol: false,
+        enforceSecureChat: false,
+        profileKeys: false
     },
-    // Config: Force 1.19.4 with explicit protocol (older fallback)
+    // Config: Auto-detect with all compatibility settings disabled
+    {
+        host: host,
+        port: port,
+        username: botName,
+        auth: 'offline',
+        version: false, // Auto-detect
+        skipValidation: true,
+        hideErrors: false,
+        checkTimeoutInterval: 25000,
+        loginTimeout: 25000,
+        connectTimeout: 25000,
+        noPing: true,
+        disablePing: true,
+        keepAlive: false,
+        closeTimeout: 15000,
+        validateChannelProtocol: false,
+        enforceSecureChat: false,
+        profileKeys: false
+    },
+    // Config: Force 1.19.4 (very stable fallback)
     {
         host: host,
         port: port,
@@ -129,7 +145,10 @@ botConfigs = botConfigs.concat([
         noPing: true,
         disablePing: true,
         keepAlive: false,
-        closeTimeout: 15000
+        closeTimeout: 15000,
+        validateChannelProtocol: false,
+        enforceSecureChat: false,
+        profileKeys: false
     }
 ]);
 
@@ -286,7 +305,7 @@ function tryConnect() {
                     currentConfigIndex++;
                     setTimeout(tryConnect, 1000);
                 }
-            }, 30000); // 30 second login timeout
+            }, 15000); // 15 second login timeout (reduced from 30)
         }
     });
     
@@ -307,10 +326,30 @@ function tryConnect() {
         process.exit(0);
     });
     
-    // Progress indicator with state info
+    // Progress indicator with state info and login timeout detection
     let progressInterval = setInterval(() => {
         if (bot._client && bot._client.state) {
             console.log(`Bot ${botName} progress: state = ${bot._client.state}, connection = ${connectionState}`);
+            
+            // If stuck in login state for multiple progress reports, force retry
+            if (bot._client.state === 'login' && connectionState === 'connected') {
+                // Count how many times we've seen login state
+                if (!bot._loginStateCount) {
+                    bot._loginStateCount = 0;
+                }
+                bot._loginStateCount++;
+                
+                // If we've been in login state for more than 3 progress reports (15 seconds), force retry
+                if (bot._loginStateCount > 3) {
+                    console.log(`Bot ${botName} stuck in login state for too long, forcing config change`);
+                    clearInterval(progressInterval);
+                    bot.end();
+                    currentConfigIndex++;
+                    setTimeout(tryConnect, 1000);
+                    return;
+                }
+            }
+            
             if (bot._client.state === 'play') {
                 clearInterval(progressInterval);
             }
