@@ -1,16 +1,14 @@
 {
-  "name": "ai-pvp-bot-mineflayer",
+  "name": "minecraft-bot-server",
   "version": "1.0.0",
-  "description": "Pre-built mineflayer package for AI PvP Bot mod",
-  "main": "bot_template.js",
-  "dependencies": {
-    "mineflayer": "^4.21.0",
-    "minecraft-data": "^3.70.0"
-  },
+  "description": "Mineflayer bot server for AI PvP Bot mod",
+  "main": "server.js",
   "scripts": {
-    "start": "node bot_template.js"
+    "start": "node server.js"
   },
-  "keywords": ["minecraft", "mineflayer", "bot", "pvp"],
-  "author": "stepan1411",
-  "license": "MIT"
+  "dependencies": {
+    "mineflayer": "^4.20.1",
+    "ws": "^8.16.0",
+    "minecraft-protocol": "^1.47.0"
+  }
 }
