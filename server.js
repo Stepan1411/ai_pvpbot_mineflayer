@@ -5,6 +5,8 @@ const PORT = 8765;
 const wss = new WebSocket.Server({ port: PORT });
 
 const bots = new Map();
+const botFactions = new Map();
+const hostileRelations = new Map();
 
 console.log(`Bot server started on port ${PORT}`);
 
@@ -63,7 +65,7 @@ function createBot(ws, params) {
             host: host || 'localhost',
             port: port || 25565,
             username: username,
-            version: version || false, // false = автоопределение версии
+            version: version || false,
             auth: 'offline',
             hideErrors: false
         });
@@ -132,7 +134,6 @@ function createBot(ws, params) {
 
         bots.set(username, bot);
 
-        // Отправляем начальный ответ
         ws.send(JSON.stringify({ 
             success: true, 
             message: `Bot ${username} is connecting...` 
@@ -179,6 +180,30 @@ function listBots(ws) {
 function executeBotAction(ws, params) {
     const { username, action, actionParams } = params;
 
+    if (action === 'updateFactions' && username === '__system__') {
+        botFactions.clear();
+        hostileRelations.clear();
+        
+        if (actionParams.botFactions) {
+            for (const [bot, faction] of Object.entries(actionParams.botFactions)) {
+                botFactions.set(bot, faction);
+            }
+        }
+        
+        if (actionParams.hostileRelations) {
+            for (const [faction, enemies] of Object.entries(actionParams.hostileRelations)) {
+                hostileRelations.set(faction, new Set(enemies));
+            }
+        }
+        
+        console.log('Faction data updated');
+        ws.send(JSON.stringify({ 
+            success: true, 
+            message: 'Faction data updated' 
+        }));
+        return;
+    }
+
     if (!bots.has(username)) {
         ws.send(JSON.stringify({ 
             success: false, 
@@ -192,7 +217,6 @@ function executeBotAction(ws, params) {
     try {
         switch (action) {
             case 'teleport':
-                // Телепортация бота на указанные координаты
                 if (bot.entity) {
                     bot.entity.position.x = actionParams.x;
                     bot.entity.position.y = actionParams.y;
@@ -200,11 +224,13 @@ function executeBotAction(ws, params) {
                     console.log(`Bot ${username} teleported to ${actionParams.x}, ${actionParams.y}, ${actionParams.z}`);
                 }
                 break;
+            case 'applyKit':
+                applyKitToBot(bot, username, actionParams.kit);
+                break;
             case 'chat':
                 bot.chat(actionParams.message);
                 break;
             case 'move':
-                // Базовое движение
                 bot.setControlState('forward', actionParams.forward || false);
                 bot.setControlState('back', actionParams.back || false);
                 bot.setControlState('left', actionParams.left || false);
@@ -235,7 +261,6 @@ function executeBotAction(ws, params) {
     }
 }
 
-
 function startPvpBehavior(bot, username) {
     const pvpRange = 4;
     const followRange = 16;
@@ -257,7 +282,35 @@ function startPvpBehavior(bot, username) {
             return;
         }
 
-        target = players.reduce((closest, player) => {
+        const myFaction = botFactions.get(username);
+        
+        const validTargets = players.filter(player => {
+            const targetName = player.username;
+            const targetFaction = botFactions.get(targetName);
+            
+            if (!myFaction || !targetFaction) {
+                return true;
+            }
+            
+            if (myFaction === targetFaction) {
+                return false;
+            }
+            
+            const myEnemies = hostileRelations.get(myFaction);
+            if (myEnemies && myEnemies.has(targetFaction)) {
+                return true;
+            }
+            
+            return false;
+        });
+
+        if (validTargets.length === 0) {
+            target = null;
+            bot.clearControlStates();
+            return;
+        }
+
+        target = validTargets.reduce((closest, player) => {
             const distToPlayer = player.position.distanceTo(bot.entity.position);
             const distToClosest = closest ? closest.position.distanceTo(bot.entity.position) : Infinity;
             return distToPlayer < distToClosest ? player : closest;
@@ -295,4 +348,31 @@ function startPvpBehavior(bot, username) {
             }
         }
     }, 50);
+}
+
+function applyKitToBot(bot, username, kitData) {
+    try {
+        const mcData = require('minecraft-data')(bot.version);
+        
+        for (const [slotStr, nbtStr] of Object.entries(kitData)) {
+            const slot = parseInt(slotStr);
+            
+            const nbtData = JSON.parse(nbtStr);
+            
+            if (nbtData.id) {
+                const itemName = nbtData.id.replace('minecraft:', '');
+                const item = mcData.itemsByName[itemName];
+                
+                if (item) {
+                    const count = nbtData.count || 1;
+                    
+                    bot.creative.setInventorySlot(slot, new bot.Item(item.id, count, 0));
+                }
+            }
+        }
+        
+        console.log(`Kit applied to bot ${username}`);
+    } catch (error) {
+        console.error(`Failed to apply kit to bot ${username}:`, error.message);
+    }
 }
