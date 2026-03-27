@@ -11,7 +11,6 @@ const hostileRelations = new Map();
 console.log(`Bot server started on port ${PORT}`);
 
 wss.on('connection', (ws) => {
-    console.log('New client connected');
 
     ws.on('message', (message) => {
         try {
@@ -24,7 +23,6 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('close', () => {
-        console.log('Client disconnected');
     });
 });
 
@@ -62,7 +60,7 @@ function createBot(ws, params) {
 
     try {
         const bot = mineflayer.createBot({
-            host: host || 'localhost',
+            host: host || '127.0.0.1',
             port: port || 25565,
             username: username,
             version: version || false,
@@ -71,11 +69,10 @@ function createBot(ws, params) {
         });
 
         bot.on('login', () => {
-            console.log(`Bot ${username} logged in`);
+            // Silent login
         });
 
         bot.on('spawn', () => {
-            console.log(`Bot ${username} spawned at position:`, bot.entity.position);
             ws.send(JSON.stringify({ 
                 success: true, 
                 message: `Bot ${username} connected and spawned`,
@@ -86,7 +83,6 @@ function createBot(ws, params) {
         });
 
         bot.on('error', (err) => {
-            console.error(`Bot ${username} error:`, err.message);
             ws.send(JSON.stringify({ 
                 event: 'error',
                 username: username,
@@ -95,7 +91,6 @@ function createBot(ws, params) {
         });
 
         bot.on('kicked', (reason) => {
-            console.log(`Bot ${username} kicked:`, reason);
             bots.delete(username);
             ws.send(JSON.stringify({ 
                 event: 'kicked', 
@@ -105,7 +100,6 @@ function createBot(ws, params) {
         });
 
         bot.on('end', (reason) => {
-            console.log(`Bot ${username} disconnected:`, reason);
             bots.delete(username);
             ws.send(JSON.stringify({ 
                 event: 'disconnected', 
@@ -115,7 +109,6 @@ function createBot(ws, params) {
         });
 
         bot.on('death', () => {
-            console.log(`Bot ${username} died`);
             ws.send(JSON.stringify({ 
                 event: 'death', 
                 username: username 
@@ -123,13 +116,11 @@ function createBot(ws, params) {
         });
 
         bot.on('health', () => {
-            if (bot.health <= 0) {
-                console.log(`Bot ${username} health: ${bot.health}`);
-            }
+            // Silent health monitoring
         });
 
         bot.on('message', (message) => {
-            console.log(`[Chat] ${message.toString()}`);
+            // Silent chat monitoring
         });
 
         bots.set(username, bot);
@@ -196,7 +187,6 @@ function executeBotAction(ws, params) {
             }
         }
         
-        console.log('Faction data updated');
         ws.send(JSON.stringify({ 
             success: true, 
             message: 'Faction data updated' 
@@ -221,7 +211,6 @@ function executeBotAction(ws, params) {
                     bot.entity.position.x = actionParams.x;
                     bot.entity.position.y = actionParams.y;
                     bot.entity.position.z = actionParams.z;
-                    console.log(`Bot ${username} teleported to ${actionParams.x}, ${actionParams.y}, ${actionParams.z}`);
                 }
                 break;
             case 'chat':

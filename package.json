@@ -24,6 +24,12 @@
     ],
     "targets": [
       "node18"
+    ],
+    "outputPath": ".",
+    "options": [
+      "--no-bytecode",
+      "--public-packages",
+      "*"
     ]
   }
 }
