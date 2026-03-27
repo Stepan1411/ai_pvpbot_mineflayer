@@ -1,0 +1,5 @@
+﻿{
+    "main":  "server-bundle.js",
+    "disableExperimentalSEAWarning":  true,
+    "output":  "sea-prep.blob"
+}

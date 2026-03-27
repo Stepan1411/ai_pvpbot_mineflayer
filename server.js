@@ -224,9 +224,6 @@ function executeBotAction(ws, params) {
                     console.log(`Bot ${username} teleported to ${actionParams.x}, ${actionParams.y}, ${actionParams.z}`);
                 }
                 break;
-            case 'applyKit':
-                applyKitToBot(bot, username, actionParams.kit);
-                break;
             case 'chat':
                 bot.chat(actionParams.message);
                 break;
@@ -350,29 +347,3 @@ function startPvpBehavior(bot, username) {
     }, 50);
 }
 
-function applyKitToBot(bot, username, kitData) {
-    try {
-        const mcData = require('minecraft-data')(bot.version);
-        
-        for (const [slotStr, nbtStr] of Object.entries(kitData)) {
-            const slot = parseInt(slotStr);
-            
-            const nbtData = JSON.parse(nbtStr);
-            
-            if (nbtData.id) {
-                const itemName = nbtData.id.replace('minecraft:', '');
-                const item = mcData.itemsByName[itemName];
-                
-                if (item) {
-                    const count = nbtData.count || 1;
-                    
-                    bot.creative.setInventorySlot(slot, new bot.Item(item.id, count, 0));
-                }
-            }
-        }
-        
-        console.log(`Kit applied to bot ${username}`);
-    } catch (error) {
-        console.error(`Failed to apply kit to bot ${username}:`, error.message);
-    }
-}
