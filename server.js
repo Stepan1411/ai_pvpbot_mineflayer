@@ -75,6 +75,7 @@ function createBot(ws, params) {
         });
 
         bot.on('spawn', () => {
+            console.log(`[${username}] Bot spawned`);
             ws.send(JSON.stringify({ 
                 success: true, 
                 message: `Bot ${username} connected and spawned`,
@@ -117,6 +118,14 @@ function createBot(ws, params) {
         });
 
         bot.on('death', () => {
+            console.log(`[${username}] Bot died - clearing attack state`);
+            // Clear attack when bot dies
+            if (botIntervals.has(username)) {
+                clearInterval(botIntervals.get(username));
+                botIntervals.delete(username);
+            }
+            botTargets.delete(username);
+            
             ws.send(JSON.stringify({ 
                 event: 'death', 
                 username: username 
@@ -185,6 +194,8 @@ function listBots(ws) {
 
 function executeBotAction(ws, params) {
     const { username, action, actionParams } = params;
+    
+    console.log(`[Node.js] Received action: ${action} for bot: ${username}`, actionParams);
 
     if (action === 'updateFactions' && username === '__system__') {
         botFactions.clear();
@@ -222,6 +233,15 @@ function executeBotAction(ws, params) {
     try {
         switch (action) {
             case 'startAttack':
+                // TEMPORARILY DISABLED - bots will not attack
+                console.log(`[${username}] Attack command received but DISABLED`);
+                ws.send(JSON.stringify({ 
+                    success: true, 
+                    message: `Attack disabled for bot ${username}` 
+                }));
+                return;
+                
+                /*
                 // Start attacking target
                 const targetName = actionParams.target;
                 console.log(`[${username}] Starting attack on ${targetName}`);
@@ -246,12 +266,24 @@ function executeBotAction(ws, params) {
                         e.type === 'player' && e.username === target
                     );
                     
+                    // Stop if target not found or too far away (16 blocks)
                     if (!targetEntity) {
                         bot.clearControlStates();
                         return;
                     }
                     
                     const distance = targetEntity.position.distanceTo(bot.entity.position);
+                    
+                    // Auto-stop if target is too far (16 blocks)
+                    if (distance > 16) {
+                        console.log(`[${username}] Target ${target} too far (${distance.toFixed(1)} blocks), stopping attack`);
+                        clearInterval(intervalId);
+                        botIntervals.delete(username);
+                        botTargets.delete(username);
+                        bot.clearControlStates();
+                        return;
+                    }
+                    
                     bot.lookAt(targetEntity.position.offset(0, targetEntity.height, 0));
                     
                     if (distance > 4) {
@@ -275,6 +307,7 @@ function executeBotAction(ws, params) {
                 
                 botIntervals.set(username, intervalId);
                 console.log(`[${username}] Attack interval started`);
+                */
                 break;
                 
             case 'stopAttack':
