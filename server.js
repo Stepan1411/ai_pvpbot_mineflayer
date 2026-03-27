@@ -224,10 +224,12 @@ function executeBotAction(ws, params) {
             case 'startAttack':
                 // Start attacking target
                 const targetName = actionParams.target;
+                console.log(`[${username}] Starting attack on ${targetName}`);
                 botTargets.set(username, targetName);
                 
                 // Clear existing interval if any
                 if (botIntervals.has(username)) {
+                    console.log(`[${username}] Clearing existing attack interval`);
                     clearInterval(botIntervals.get(username));
                 }
                 
@@ -272,16 +274,20 @@ function executeBotAction(ws, params) {
                 }, 50);
                 
                 botIntervals.set(username, intervalId);
+                console.log(`[${username}] Attack interval started`);
                 break;
                 
             case 'stopAttack':
                 // Stop attacking
+                console.log(`[${username}] Stopping attack`);
                 if (botIntervals.has(username)) {
                     clearInterval(botIntervals.get(username));
                     botIntervals.delete(username);
+                    console.log(`[${username}] Attack interval cleared`);
                 }
                 botTargets.delete(username);
                 bot.clearControlStates();
+                console.log(`[${username}] Control states cleared`);
                 break;
                 
             case 'teleport':
