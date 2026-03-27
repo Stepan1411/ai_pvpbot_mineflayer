@@ -78,8 +78,6 @@ function createBot(ws, params) {
                 message: `Bot ${username} connected and spawned`,
                 position: bot.entity.position
             }));
-
-            startPvpBehavior(bot, username);
         });
 
         bot.on('error', (err) => {
@@ -206,6 +204,38 @@ function executeBotAction(ws, params) {
 
     try {
         switch (action) {
+            case 'attackTarget':
+                // Attack specific target
+                const targetName = actionParams.target;
+                const targetEntity = Object.values(bot.entities).find(e => 
+                    e.type === 'player' && e.username === targetName
+                );
+                if (targetEntity) {
+                    const distance = targetEntity.position.distanceTo(bot.entity.position);
+                    bot.lookAt(targetEntity.position.offset(0, targetEntity.height, 0));
+                    
+                    if (distance > 4) {
+                        const dx = targetEntity.position.x - bot.entity.position.x;
+                        const dz = targetEntity.position.z - bot.entity.position.z;
+                        const angle = Math.atan2(-dx, -dz);
+                        bot.entity.yaw = angle;
+                        bot.setControlState('forward', true);
+                        bot.setControlState('sprint', true);
+                    } else {
+                        bot.setControlState('forward', false);
+                        bot.setControlState('sprint', false);
+                        bot.attack(targetEntity);
+                    }
+                    
+                    if (distance < 3 && Math.random() < 0.3) {
+                        bot.setControlState('jump', true);
+                        setTimeout(() => bot.setControlState('jump', false), 100);
+                    }
+                }
+                break;
+            case 'stopAttack':
+                bot.clearControlStates();
+                break;
             case 'teleport':
                 if (bot.entity) {
                     bot.entity.position.x = actionParams.x;
@@ -246,93 +276,3 @@ function executeBotAction(ws, params) {
         }));
     }
 }
-
-function startPvpBehavior(bot, username) {
-    const pvpRange = 4;
-    const followRange = 16;
-    let target = null;
-    let attackCooldown = false;
-
-    setInterval(() => {
-        if (!bot.entity) return;
-
-        const players = Object.values(bot.entities).filter(entity => 
-            entity.type === 'player' && 
-            entity.username !== username &&
-            entity.position.distanceTo(bot.entity.position) < followRange
-        );
-
-        if (players.length === 0) {
-            target = null;
-            bot.clearControlStates();
-            return;
-        }
-
-        const myFaction = botFactions.get(username);
-        
-        const validTargets = players.filter(player => {
-            const targetName = player.username;
-            const targetFaction = botFactions.get(targetName);
-            
-            if (!myFaction || !targetFaction) {
-                return true;
-            }
-            
-            if (myFaction === targetFaction) {
-                return false;
-            }
-            
-            const myEnemies = hostileRelations.get(myFaction);
-            if (myEnemies && myEnemies.has(targetFaction)) {
-                return true;
-            }
-            
-            return false;
-        });
-
-        if (validTargets.length === 0) {
-            target = null;
-            bot.clearControlStates();
-            return;
-        }
-
-        target = validTargets.reduce((closest, player) => {
-            const distToPlayer = player.position.distanceTo(bot.entity.position);
-            const distToClosest = closest ? closest.position.distanceTo(bot.entity.position) : Infinity;
-            return distToPlayer < distToClosest ? player : closest;
-        }, null);
-
-        if (target) {
-            const distance = target.position.distanceTo(bot.entity.position);
-
-            bot.lookAt(target.position.offset(0, target.height, 0));
-
-            if (distance > pvpRange) {
-                const dx = target.position.x - bot.entity.position.x;
-                const dz = target.position.z - bot.entity.position.z;
-                const angle = Math.atan2(-dx, -dz);
-                
-                bot.entity.yaw = angle;
-                bot.setControlState('forward', true);
-                bot.setControlState('sprint', true);
-            } else {
-                bot.setControlState('forward', false);
-                bot.setControlState('sprint', false);
-
-                if (!attackCooldown) {
-                    bot.attack(target);
-                    attackCooldown = true;
-                    setTimeout(() => {
-                        attackCooldown = false;
-                    }, 500);
-                }
-            }
-
-            if (distance < 3 && Math.random() < 0.3) {
-                bot.setControlState('jump', true);
-                setTimeout(() => bot.setControlState('jump', false), 100);
-            }
-        }
-    }, 50);
-}
-
