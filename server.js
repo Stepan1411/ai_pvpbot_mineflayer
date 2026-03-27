@@ -5,31 +5,30 @@ const PORT = 8765;
 const wss = new WebSocket.Server({ port: PORT });
 
 const bots = new Map();
-const botFactions = new Map();
-const hostileRelations = new Map();
-const botTargets = new Map(); // bot -> target name
-const botIntervals = new Map(); // bot -> interval id
 
-console.log(`Bot server started on port ${PORT}`);
+console.log(`[Bot Server] Started on port ${PORT}`);
 
 wss.on('connection', (ws) => {
+    console.log('[Bot Server] Client connected');
 
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message);
             handleCommand(ws, data);
         } catch (error) {
-            console.error('Error parsing message:', error);
+            console.error('[Bot Server] Error parsing message:', error);
             ws.send(JSON.stringify({ error: 'Invalid JSON' }));
         }
     });
 
     ws.on('close', () => {
+        console.log('[Bot Server] Client disconnected');
     });
 });
 
 function handleCommand(ws, data) {
     const { command, params } = data;
+    console.log(`[Bot Server] Received command: ${command}`, params);
 
     switch (command) {
         case 'createBot':
@@ -53,6 +52,7 @@ function createBot(ws, params) {
     const { username, host, port, version } = params;
 
     if (bots.has(username)) {
+        console.log(`[${username}] Bot already exists`);
         ws.send(JSON.stringify({ 
             success: false, 
             error: 'Bot already exists' 
@@ -61,6 +61,7 @@ function createBot(ws, params) {
     }
 
     try {
+        console.log(`[${username}] Creating bot...`);
         const bot = mineflayer.createBot({
             host: host || '127.0.0.1',
             port: port || 25565,
@@ -71,19 +72,20 @@ function createBot(ws, params) {
         });
 
         bot.on('login', () => {
-            // Silent login
+            console.log(`[${username}] Logged in`);
         });
 
         bot.on('spawn', () => {
-            console.log(`[${username}] Bot spawned`);
+            console.log(`[${username}] Spawned in game`);
             ws.send(JSON.stringify({ 
                 success: true, 
-                message: `Bot ${username} connected and spawned`,
+                message: `Bot ${username} spawned`,
                 position: bot.entity.position
             }));
         });
 
         bot.on('error', (err) => {
+            console.error(`[${username}] Error:`, err.message);
             ws.send(JSON.stringify({ 
                 event: 'error',
                 username: username,
@@ -92,6 +94,7 @@ function createBot(ws, params) {
         });
 
         bot.on('kicked', (reason) => {
+            console.log(`[${username}] Kicked:`, reason);
             bots.delete(username);
             ws.send(JSON.stringify({ 
                 event: 'kicked', 
@@ -101,43 +104,21 @@ function createBot(ws, params) {
         });
 
         bot.on('end', (reason) => {
+            console.log(`[${username}] Disconnected:`, reason);
             bots.delete(username);
-            
-            // Clear attack interval
-            if (botIntervals.has(username)) {
-                clearInterval(botIntervals.get(username));
-                botIntervals.delete(username);
-            }
-            botTargets.delete(username);
-            
             ws.send(JSON.stringify({ 
                 event: 'disconnected', 
                 username: username,
-                reason: reason || 'Unknown reason'
+                reason: reason || 'Unknown'
             }));
         });
 
         bot.on('death', () => {
-            console.log(`[${username}] Bot died - clearing attack state`);
-            // Clear attack when bot dies
-            if (botIntervals.has(username)) {
-                clearInterval(botIntervals.get(username));
-                botIntervals.delete(username);
-            }
-            botTargets.delete(username);
-            
+            console.log(`[${username}] Died`);
             ws.send(JSON.stringify({ 
                 event: 'death', 
                 username: username 
             }));
-        });
-
-        bot.on('health', () => {
-            // Silent health monitoring
-        });
-
-        bot.on('message', (message) => {
-            // Silent chat monitoring
         });
 
         bots.set(username, bot);
@@ -148,7 +129,7 @@ function createBot(ws, params) {
         }));
 
     } catch (error) {
-        console.error(`Failed to create bot ${username}:`, error);
+        console.error(`[${username}] Failed to create:`, error);
         ws.send(JSON.stringify({ 
             success: false, 
             error: error.message 
@@ -160,6 +141,7 @@ function removeBot(ws, params) {
     const { username } = params;
 
     if (!bots.has(username)) {
+        console.log(`[${username}] Bot not found`);
         ws.send(JSON.stringify({ 
             success: false, 
             error: 'Bot not found' 
@@ -167,16 +149,10 @@ function removeBot(ws, params) {
         return;
     }
 
+    console.log(`[${username}] Removing bot`);
     const bot = bots.get(username);
     bot.quit();
     bots.delete(username);
-    
-    // Clear attack interval
-    if (botIntervals.has(username)) {
-        clearInterval(botIntervals.get(username));
-        botIntervals.delete(username);
-    }
-    botTargets.delete(username);
 
     ws.send(JSON.stringify({ 
         success: true, 
@@ -186,6 +162,7 @@ function removeBot(ws, params) {
 
 function listBots(ws) {
     const botList = Array.from(bots.keys());
+    console.log('[Bot Server] Listing bots:', botList);
     ws.send(JSON.stringify({ 
         success: true, 
         bots: botList 
@@ -195,30 +172,7 @@ function listBots(ws) {
 function executeBotAction(ws, params) {
     const { username, action, actionParams } = params;
     
-    console.log(`[Node.js] Received action: ${action} for bot: ${username}`, actionParams);
-
-    if (action === 'updateFactions' && username === '__system__') {
-        botFactions.clear();
-        hostileRelations.clear();
-        
-        if (actionParams.botFactions) {
-            for (const [bot, faction] of Object.entries(actionParams.botFactions)) {
-                botFactions.set(bot, faction);
-            }
-        }
-        
-        if (actionParams.hostileRelations) {
-            for (const [faction, enemies] of Object.entries(actionParams.hostileRelations)) {
-                hostileRelations.set(faction, new Set(enemies));
-            }
-        }
-        
-        ws.send(JSON.stringify({ 
-            success: true, 
-            message: 'Faction data updated' 
-        }));
-        return;
-    }
+    console.log(`[${username}] Action: ${action}`, actionParams);
 
     if (!bots.has(username)) {
         ws.send(JSON.stringify({ 
@@ -233,117 +187,32 @@ function executeBotAction(ws, params) {
     try {
         switch (action) {
             case 'startAttack':
-                // TEMPORARILY DISABLED - bots will not attack
-                console.log(`[${username}] Attack command received but DISABLED`);
+                console.log(`[${username}] Attack command ignored - bot is passive`);
                 ws.send(JSON.stringify({ 
                     success: true, 
-                    message: `Attack disabled for bot ${username}` 
+                    message: 'Bot is passive, attack disabled' 
                 }));
-                return;
-                
-                /*
-                // Start attacking target
-                const targetName = actionParams.target;
-                console.log(`[${username}] Starting attack on ${targetName}`);
-                botTargets.set(username, targetName);
-                
-                // Clear existing interval if any
-                if (botIntervals.has(username)) {
-                    console.log(`[${username}] Clearing existing attack interval`);
-                    clearInterval(botIntervals.get(username));
-                }
-                
-                // Start attack loop
-                const intervalId = setInterval(() => {
-                    if (!bots.has(username) || !botTargets.has(username)) {
-                        clearInterval(intervalId);
-                        botIntervals.delete(username);
-                        return;
-                    }
-                    
-                    const target = botTargets.get(username);
-                    const targetEntity = Object.values(bot.entities).find(e => 
-                        e.type === 'player' && e.username === target
-                    );
-                    
-                    // Stop if target not found or too far away (16 blocks)
-                    if (!targetEntity) {
-                        bot.clearControlStates();
-                        return;
-                    }
-                    
-                    const distance = targetEntity.position.distanceTo(bot.entity.position);
-                    
-                    // Auto-stop if target is too far (16 blocks)
-                    if (distance > 16) {
-                        console.log(`[${username}] Target ${target} too far (${distance.toFixed(1)} blocks), stopping attack`);
-                        clearInterval(intervalId);
-                        botIntervals.delete(username);
-                        botTargets.delete(username);
-                        bot.clearControlStates();
-                        return;
-                    }
-                    
-                    bot.lookAt(targetEntity.position.offset(0, targetEntity.height, 0));
-                    
-                    if (distance > 4) {
-                        const dx = targetEntity.position.x - bot.entity.position.x;
-                        const dz = targetEntity.position.z - bot.entity.position.z;
-                        const angle = Math.atan2(-dx, -dz);
-                        bot.entity.yaw = angle;
-                        bot.setControlState('forward', true);
-                        bot.setControlState('sprint', true);
-                    } else {
-                        bot.setControlState('forward', false);
-                        bot.setControlState('sprint', false);
-                        bot.attack(targetEntity);
-                    }
-                    
-                    if (distance < 3 && Math.random() < 0.3) {
-                        bot.setControlState('jump', true);
-                        setTimeout(() => bot.setControlState('jump', false), 100);
-                    }
-                }, 50);
-                
-                botIntervals.set(username, intervalId);
-                console.log(`[${username}] Attack interval started`);
-                */
                 break;
                 
             case 'stopAttack':
-                // Stop attacking
-                console.log(`[${username}] Stopping attack`);
-                if (botIntervals.has(username)) {
-                    clearInterval(botIntervals.get(username));
-                    botIntervals.delete(username);
-                    console.log(`[${username}] Attack interval cleared`);
-                }
-                botTargets.delete(username);
+                console.log(`[${username}] Stop attack command received`);
                 bot.clearControlStates();
-                console.log(`[${username}] Control states cleared`);
+                ws.send(JSON.stringify({ 
+                    success: true, 
+                    message: 'Bot stopped' 
+                }));
                 break;
                 
-            case 'teleport':
-                if (bot.entity) {
-                    bot.entity.position.x = actionParams.x;
-                    bot.entity.position.y = actionParams.y;
-                    bot.entity.position.z = actionParams.z;
-                }
-                break;
             case 'chat':
                 bot.chat(actionParams.message);
+                ws.send(JSON.stringify({ 
+                    success: true, 
+                    message: 'Chat sent' 
+                }));
                 break;
-            case 'move':
-                bot.setControlState('forward', actionParams.forward || false);
-                bot.setControlState('back', actionParams.back || false);
-                bot.setControlState('left', actionParams.left || false);
-                bot.setControlState('right', actionParams.right || false);
-                break;
-            case 'jump':
-                bot.setControlState('jump', true);
-                setTimeout(() => bot.setControlState('jump', false), 100);
-                break;
+                
             default:
+                console.log(`[${username}] Unknown action: ${action}`);
                 ws.send(JSON.stringify({ 
                     success: false, 
                     error: 'Unknown action' 
@@ -353,10 +222,11 @@ function executeBotAction(ws, params) {
 
         ws.send(JSON.stringify({ 
             success: true, 
-            message: `Action ${action} executed for bot ${username}` 
+            message: `Action ${action} executed` 
         }));
 
     } catch (error) {
+        console.error(`[${username}] Action error:`, error);
         ws.send(JSON.stringify({ 
             success: false, 
             error: error.message 
