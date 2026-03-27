@@ -7,6 +7,8 @@ const wss = new WebSocket.Server({ port: PORT });
 const bots = new Map();
 const botFactions = new Map();
 const hostileRelations = new Map();
+const botTargets = new Map(); // bot -> target name
+const botIntervals = new Map(); // bot -> interval id
 
 console.log(`Bot server started on port ${PORT}`);
 
@@ -99,6 +101,14 @@ function createBot(ws, params) {
 
         bot.on('end', (reason) => {
             bots.delete(username);
+            
+            // Clear attack interval
+            if (botIntervals.has(username)) {
+                clearInterval(botIntervals.get(username));
+                botIntervals.delete(username);
+            }
+            botTargets.delete(username);
+            
             ws.send(JSON.stringify({ 
                 event: 'disconnected', 
                 username: username,
@@ -151,6 +161,13 @@ function removeBot(ws, params) {
     const bot = bots.get(username);
     bot.quit();
     bots.delete(username);
+    
+    // Clear attack interval
+    if (botIntervals.has(username)) {
+        clearInterval(botIntervals.get(username));
+        botIntervals.delete(username);
+    }
+    botTargets.delete(username);
 
     ws.send(JSON.stringify({ 
         success: true, 
@@ -204,13 +221,34 @@ function executeBotAction(ws, params) {
 
     try {
         switch (action) {
-            case 'attackTarget':
-                // Attack specific target
+            case 'startAttack':
+                // Start attacking target
                 const targetName = actionParams.target;
-                const targetEntity = Object.values(bot.entities).find(e => 
-                    e.type === 'player' && e.username === targetName
-                );
-                if (targetEntity) {
+                botTargets.set(username, targetName);
+                
+                // Clear existing interval if any
+                if (botIntervals.has(username)) {
+                    clearInterval(botIntervals.get(username));
+                }
+                
+                // Start attack loop
+                const intervalId = setInterval(() => {
+                    if (!bots.has(username) || !botTargets.has(username)) {
+                        clearInterval(intervalId);
+                        botIntervals.delete(username);
+                        return;
+                    }
+                    
+                    const target = botTargets.get(username);
+                    const targetEntity = Object.values(bot.entities).find(e => 
+                        e.type === 'player' && e.username === target
+                    );
+                    
+                    if (!targetEntity) {
+                        bot.clearControlStates();
+                        return;
+                    }
+                    
                     const distance = targetEntity.position.distanceTo(bot.entity.position);
                     bot.lookAt(targetEntity.position.offset(0, targetEntity.height, 0));
                     
@@ -231,11 +269,21 @@ function executeBotAction(ws, params) {
                         bot.setControlState('jump', true);
                         setTimeout(() => bot.setControlState('jump', false), 100);
                     }
-                }
+                }, 50);
+                
+                botIntervals.set(username, intervalId);
                 break;
+                
             case 'stopAttack':
+                // Stop attacking
+                if (botIntervals.has(username)) {
+                    clearInterval(botIntervals.get(username));
+                    botIntervals.delete(username);
+                }
+                botTargets.delete(username);
                 bot.clearControlStates();
                 break;
+                
             case 'teleport':
                 if (bot.entity) {
                     bot.entity.position.x = actionParams.x;
