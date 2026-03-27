@@ -1,13 +1,19 @@
 {
   "name": "ai-pvpbot-mineflayer",
   "version": "1.0.0",
-  "description": "Simple bot server for AI PvP Bot",
+  "description": "Simple bot server for AI PVP Bot",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "mineflayer": "^4.20.1",
+    "mineflayer-pathfinder": "^2.4.4",
+    "mineflayer-pvp": "^1.3.2",
+    "mineflayer-auto-eat": "^2.1.0",
+    "mineflayer-tool": "^1.2.0",
+    "minecraft-data": "^3.69.0",
+    "vec3": "^0.1.8",
     "ws": "^8.18.0"
   }
 }
