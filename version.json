@@ -1,8 +1,4 @@
 {
-  "version": "1.0.0",
-  "files": [
-    "server.js",
-    "package.json",
-    "package-lock.json"
-  ]
+  "version": 16,
+  "minModVersion": "1.0"
 }
