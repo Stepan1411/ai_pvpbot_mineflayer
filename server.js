@@ -1,7 +1,6 @@
 const WebSocket = require('ws');
 const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
-const pvp = require('mineflayer-pvp').plugin;
 const autoEat = require('mineflayer-auto-eat');
 const toolPlugin = require('mineflayer-tool').plugin;
 
@@ -73,7 +72,6 @@ function createBot(ws, params) {
         bot.on('spawn', () => {
             // Загружаем плагины
             bot.loadPlugin(pathfinder);
-            bot.loadPlugin(pvp);
             bot.loadPlugin(toolPlugin);
             bot.loadPlugin(autoEat);
             
@@ -205,9 +203,6 @@ function executeBotAction(ws, params) {
                     clearInterval(bot.attackInterval);
                     bot.attackInterval = null;
                 }
-                if (bot.pvp.target) {
-                    bot.pvp.stop();
-                }
                 bot.pathfinder.setGoal(null);
                 bot.clearControlStates();
                 ws.send(JSON.stringify({ 
@@ -252,9 +247,6 @@ function attackEntity(bot, target) {
     if (bot.attackInterval) {
         clearInterval(bot.attackInterval);
     }
-    if (bot.pvp.target) {
-        bot.pvp.stop();
-    }
     
     // Экипируем лучшее оружие
     equipBestWeapon(bot);
@@ -269,15 +261,12 @@ function attackEntity(bot, target) {
     // Включаем спринт постоянно
     bot.setControlState('sprint', true);
 
-    // Запускаем PVP атаку
-    bot.pvp.attack(target);
-
-    // Дополнительная логика для bhop и критов
+    // Логика атаки и движения
     bot.attackInterval = setInterval(() => {
         if (!target.isValid || target.position.distanceTo(bot.entity.position) > 32) {
             clearInterval(bot.attackInterval);
             bot.attackInterval = null;
-            bot.pvp.stop();
+            bot.pathfinder.setGoal(null);
             bot.setControlState('sprint', false);
             return;
         }
@@ -287,6 +276,19 @@ function attackEntity(bot, target) {
         // Проверяем здоровье и едим если нужно
         if (bot.food < 14 && !bot.autoEat.isEating) {
             bot.autoEat.eat();
+        }
+
+        // Поворачиваемся к цели
+        bot.lookAt(target.position.offset(0, target.height, 0));
+
+        // Если далеко - используем pathfinder для движения
+        if (distance > 3) {
+            const goal = new goals.GoalFollow(target, 2);
+            bot.pathfinder.setGoal(goal, true);
+        } else {
+            // Если близко - останавливаем pathfinder и атакуем
+            bot.pathfinder.setGoal(null);
+            bot.attack(target);
         }
 
         // Bhop только когда на земле и в правильном диапазоне

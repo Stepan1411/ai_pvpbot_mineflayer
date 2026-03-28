@@ -1,4 +1,5 @@
 {
-  "version": 16,
-  "minModVersion": "1.0"
+  "version": 19,
+  "minModVersion": "1.0",
+  "nodejs_ver": "5.0.0"
 }
