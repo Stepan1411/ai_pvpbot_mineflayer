@@ -331,7 +331,11 @@ function initializePVPSystem(bot) {
         strafeTimer: 0,
         comboHits: 0,
         lastArmorCheck: 0,
-        lastWeaponCheck: 0
+        lastWeaponCheck: 0,
+        lastPathUpdate: 0,
+        isStuck: false,
+        lastPosition: null,
+        stuckTimer: 0
     };
     
     console.log(`[INFO] PVP system initialized for ${bot.username}`);
@@ -407,16 +411,19 @@ function attackEntity(bot, target) {
             // Проверяем тотем в оффханде
             ensureTotemInOffhand(bot);
 
+            // Проверяем на земле ли цель
+            const targetOnGround = target.onGround !== undefined ? target.onGround : true;
+
             // === ДАЛЬНИЙ БОЙ ===
             if (distance > 8 && distance < 25) {
                 shootBow(bot, target);
-                // Приближаемся к цели - используем pathfinder только если цель на земле
-                const targetOnGround = target.onGround !== undefined ? target.onGround : true;
+                
+                // Используем pathfinder только если цель на земле
                 if (targetOnGround) {
                     const goal = new goals.GoalFollow(target, 3);
                     bot.pathfinder.setGoal(goal, true);
                 } else {
-                    // Цель в воздухе - прямое движение
+                    // Цель в воздухе - отключаем pathfinder и идём прямо
                     bot.pathfinder.setGoal(null);
                     bot.clearControlStates();
                     bot.setControlState('forward', true);
@@ -431,17 +438,15 @@ function attackEntity(bot, target) {
             bot.lookAt(targetPos, true);
 
             // === ДВИЖЕНИЕ И СТРАФИНГ ===
-            // Проверяем на земле ли цель
-            const targetOnGround = target.onGround !== undefined ? target.onGround : true;
-            
             if (distance > 4) {
-                // Далеко - бежим к цели со спринтом
-                // Используем pathfinder только если цель на земле
-                if (targetOnGround && distance > 6) {
+                // Далеко - бежим к цели
+                if (targetOnGround) {
+                    // Цель на земле - используем pathfinder
                     const goal = new goals.GoalFollow(target, 2.5);
                     bot.pathfinder.setGoal(goal, true);
+                    bot.setControlState('sprint', true);
                 } else {
-                    // Цель в воздухе или близко - прямое движение без pathfinder
+                    // Цель в воздухе - отключаем pathfinder
                     bot.pathfinder.setGoal(null);
                     bot.clearControlStates();
                     bot.setControlState('forward', true);
@@ -449,7 +454,7 @@ function attackEntity(bot, target) {
                 }
                 
             } else if (distance > 2.5) {
-                // Средняя дистанция - агрессивный страфинг без pathfinder
+                // Средняя дистанция - страфинг без pathfinder
                 bot.pathfinder.setGoal(null);
                 
                 bot.pvpState.strafeTimer++;
@@ -469,7 +474,7 @@ function attackEntity(bot, target) {
                 }
                 
             } else {
-                // Близко - W-tap и комбо без pathfinder
+                // Близко - W-tap без pathfinder
                 bot.pathfinder.setGoal(null);
                 bot.clearControlStates();
                 
@@ -521,7 +526,7 @@ function attackEntity(bot, target) {
             console.error(`[ERROR] Combat loop error:`, error);
         }
 
-    }, 50); // 20 тиков в секунду для плавного движения
+    }, 100); // 100ms для снижения нагрузки
 }
 
 function stopCombat(bot) {
