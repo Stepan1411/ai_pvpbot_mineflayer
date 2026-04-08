@@ -410,10 +410,18 @@ function attackEntity(bot, target) {
             // === ДАЛЬНИЙ БОЙ ===
             if (distance > 8 && distance < 25) {
                 shootBow(bot, target);
-                // Приближаемся к цели
-                const goal = new goals.GoalFollow(target, 3);
-                bot.pathfinder.setGoal(goal, true);
-                bot.setControlState('sprint', true);
+                // Приближаемся к цели - используем pathfinder только если цель на земле
+                const targetOnGround = target.onGround !== undefined ? target.onGround : true;
+                if (targetOnGround) {
+                    const goal = new goals.GoalFollow(target, 3);
+                    bot.pathfinder.setGoal(goal, true);
+                } else {
+                    // Цель в воздухе - прямое движение
+                    bot.pathfinder.setGoal(null);
+                    bot.clearControlStates();
+                    bot.setControlState('forward', true);
+                    bot.setControlState('sprint', true);
+                }
                 return;
             }
 
@@ -423,17 +431,25 @@ function attackEntity(bot, target) {
             bot.lookAt(targetPos, true);
 
             // === ДВИЖЕНИЕ И СТРАФИНГ ===
+            // Проверяем на земле ли цель
+            const targetOnGround = target.onGround !== undefined ? target.onGround : true;
+            
             if (distance > 4) {
                 // Далеко - бежим к цели со спринтом
-                const goal = new goals.GoalFollow(target, 2.5);
-                bot.pathfinder.setGoal(goal, true);
-                bot.setControlState('sprint', true);
-                bot.clearControlStates();
-                bot.setControlState('forward', true);
-                bot.setControlState('sprint', true);
+                // Используем pathfinder только если цель на земле
+                if (targetOnGround && distance > 6) {
+                    const goal = new goals.GoalFollow(target, 2.5);
+                    bot.pathfinder.setGoal(goal, true);
+                } else {
+                    // Цель в воздухе или близко - прямое движение без pathfinder
+                    bot.pathfinder.setGoal(null);
+                    bot.clearControlStates();
+                    bot.setControlState('forward', true);
+                    bot.setControlState('sprint', true);
+                }
                 
             } else if (distance > 2.5) {
-                // Средняя дистанция - агрессивный страфинг
+                // Средняя дистанция - агрессивный страфинг без pathfinder
                 bot.pathfinder.setGoal(null);
                 
                 bot.pvpState.strafeTimer++;
@@ -453,7 +469,7 @@ function attackEntity(bot, target) {
                 }
                 
             } else {
-                // Близко - W-tap и комбо
+                // Близко - W-tap и комбо без pathfinder
                 bot.pathfinder.setGoal(null);
                 bot.clearControlStates();
                 
