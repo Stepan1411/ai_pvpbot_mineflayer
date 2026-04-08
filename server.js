@@ -372,12 +372,18 @@ function attackEntity(bot, target) {
 
     // Логика атаки и движения
     bot.attackInterval = setInterval(() => {
+        const loopStart = Date.now();
+        const timings = {};
+        let lastStep = loopStart;
+        
         try {
             // Проверяем валидность цели
             if (!target.isValid || !target.position) {
                 stopCombat(bot);
                 return;
             }
+            timings.validation = Date.now() - lastStep;
+            lastStep = Date.now();
             
             const distance = target.position.distanceTo(bot.entity.position);
             
@@ -387,6 +393,8 @@ function attackEntity(bot, target) {
                 stopCombat(bot);
                 return;
             }
+            timings.distance = Date.now() - lastStep;
+            lastStep = Date.now();
 
             const now = Date.now();
 
@@ -400,6 +408,8 @@ function attackEntity(bot, target) {
                 equipBestWeapon(bot);
                 bot.pvpState.lastWeaponCheck = now;
             }
+            timings.equipment = Date.now() - lastStep;
+            lastStep = Date.now();
 
             // === ЛЕЧЕНИЕ ===
             if (bot.health < 12) {
@@ -410,6 +420,8 @@ function attackEntity(bot, target) {
 
             // Проверяем тотем в оффханде
             ensureTotemInOffhand(bot);
+            timings.healing = Date.now() - lastStep;
+            lastStep = Date.now();
 
             // Проверяем на земле ли цель
             const targetOnGround = target.onGround !== undefined ? target.onGround : true;
@@ -429,13 +441,20 @@ function attackEntity(bot, target) {
                     bot.setControlState('forward', true);
                     bot.setControlState('sprint', true);
                 }
+                timings.ranged = Date.now() - lastStep;
+                timings.total = Date.now() - loopStart;
+                if (timings.total > 50) {
+                    console.log(`[PERF] Combat loop took ${timings.total}ms:`, JSON.stringify(timings));
+                }
                 return;
             }
 
             // === БЛИЖНИЙ БОЙ ===
             // Поворачиваемся к цели (целимся в голову для критов)
             const targetPos = target.position.offset(0, target.height * 0.85, 0);
-            bot.lookAt(targetPos, true);
+            bot.lookAt(targetPos, false); // false = не форсировать, снижает нагрузку
+            timings.lookAt = Date.now() - lastStep;
+            lastStep = Date.now();
 
             // === ДВИЖЕНИЕ И СТРАФИНГ ===
             if (distance > 4) {
@@ -737,7 +756,7 @@ function shootArrow(bot, target, previousWeapon) {
         const distance = target.position.distanceTo(bot.entity.position);
         const heightOffset = target.height + (distance * 0.05); // Компенсация гравитации
         
-        bot.lookAt(target.position.offset(0, heightOffset, 0), true);
+        bot.lookAt(target.position.offset(0, heightOffset, 0), false);
         
         // Начинаем натягивать лук
         bot.activateItem();
